@@ -32,6 +32,48 @@ def age_feature(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @task
+def experience_feature(df: pd.DataFrame) -> pd.DataFrame:
+
+    df = (
+        df.assign(
+            junior_experience=lambda x: np.where(
+                x["years_field_experience"].isin(
+                    ["1 year or less", "2 - 4 years"]
+                ),
+                1,
+                0,
+            )
+        )
+        .assign(
+            mid_experience=lambda x: np.where(
+                x["years_field_experience"].isin(["5-7 years"]), 1, 0
+            )
+        )
+        .assign(
+            senior_experience=lambda x: np.where(
+                x["years_field_experience"].isin(
+                    ["8 - 10 years", "11 - 20 years", "21 - 30 years"]
+                ),
+                1,
+                0,
+            )
+        )
+        .assign(
+            old_experience=lambda x: np.where(
+                x["years_field_experience"].isin(
+                    ["31 - 40 years", "41 years or more"]
+                ),
+                1,
+                0,
+            )
+        )
+        .drop("years_field_experience", axis=1)
+    )
+
+    return df
+
+
+@task
 def country_feature(df: pd.DataFrame) -> pd.DataFrame:
     def netherlands_func(row):
         if row in ["netherlands", "the netherlands"]:
