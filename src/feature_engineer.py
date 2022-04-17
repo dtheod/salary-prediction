@@ -1,7 +1,9 @@
+import hydra
 import numpy as np
 import pandas as pd
 from fuzzywuzzy import process
-from prefect import task
+from omegaconf import DictConfig
+from prefect import Flow, task
 from prefect.engine.results import LocalResult
 from prefect.engine.serializers import PandasSerializer
 
@@ -178,6 +180,52 @@ def experience_feature(df: pd.DataFrame) -> pd.DataFrame:
 
 @task
 def country_feature(df: pd.DataFrame) -> pd.DataFrame:
+    def usa_func(row):
+        if row in [
+            "united states",
+            "usa",
+            "us",
+            "united state of america",
+            "united states of america",
+            "unitedstates",
+            "united sates of america",
+            "america",
+            "united state",
+            "unites states",
+            "united states of american",
+            "united stated",
+            "united sates",
+            "the united states",
+            "u s",
+            "unite states",
+            "united statea",
+            "the us",
+            "united stares",
+        ]:
+            return "united states"
+        else:
+            return row
+
+    def uk_func(row):
+        if row in [
+            "united kingdom",
+            "United Kingdomk",
+            "uk",
+            "scotland",
+            "england, uk",
+            "great britain",
+            "england",
+            "wales",
+            "united kingdom (england)",
+            "scotland, uk",
+            "england, united kingdom",
+            "uk (england)",
+            "northern ireland",
+        ]:
+            return "united kingdom"
+        else:
+            return row
+
     def netherlands_func(row):
         if row in ["netherlands", "the netherlands"]:
             return "netherlands"
@@ -198,6 +246,8 @@ def country_feature(df: pd.DataFrame) -> pd.DataFrame:
         )
         .assign(clean_country=lambda x: x["clean_country"].str.lower())
         .assign(clean_country=lambda x: x["clean_country"].str.strip())
+        .assign(clean_country=lambda x: x["clean_country"].apply(usa_func))
+        .assign(clean_country=lambda x: x["clean_country"].apply(uk_func))
         .assign(
             clean_country=lambda x: x["clean_country"].apply(netherlands_func)
         )
@@ -212,3 +262,23 @@ def country_feature(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     return df
+
+
+@hydra.main(config_path="../config", config_name="main")
+def feature_data(config: DictConfig):
+
+    with Flow("feature_engineering") as flow:
+
+        df = (
+            load_data(config.clean_data.path)
+            .pipe(age_feature)
+            .pipe(job_feature)
+            .pipe(experience_feature)
+            .pipe(country_feature)
+        )
+        print(df.head())
+    flow.run()
+
+
+if __name__ == "__main__":
+    feature_data()
