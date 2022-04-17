@@ -1,9 +1,8 @@
+import numpy as np
 import pandas as pd
 from prefect import task
 from prefect.engine.results import LocalResult
 from prefect.engine.serializers import PandasSerializer
-
-print("Change")
 
 INTERMEDIATE_OUTPUT = LocalResult(
     "data/clean_data/",
@@ -15,6 +14,21 @@ INTERMEDIATE_OUTPUT = LocalResult(
 @task
 def load_data(path: str) -> pd.DataFrame:
     return pd.read_csv(path, delimiter="\t")
+
+
+@task
+def age_feature(df: pd.DataFrame) -> pd.DataFrame:
+
+    df = df.assign(
+        age=lambda x: np.where(
+            x["age"].isin(["under 18", "18-24"]), "under 25", x["age"]
+        )
+    ).assign(
+        age=lambda x: np.where(
+            x["age"].isin(["55-64", "65 or over"]), "over_55", x["age"]
+        )
+    )
+    return df
 
 
 @task
