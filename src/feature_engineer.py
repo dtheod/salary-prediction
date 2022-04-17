@@ -6,8 +6,6 @@ from prefect import task, Flow, Parameter
 from prefect.engine.results import LocalResult
 from omegaconf import DictConfig
 from prefect.engine.serializers import PandasSerializer
-from rich.console import Console
-console = Console()
 
 INTERMEDIATE_OUTPUT = LocalResult(
     "data/clean_data/",
