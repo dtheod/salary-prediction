@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from fuzzywuzzy import process
 from prefect import task
 from prefect.engine.results import LocalResult
 from prefect.engine.serializers import PandasSerializer
@@ -28,6 +29,108 @@ def age_feature(df: pd.DataFrame) -> pd.DataFrame:
             x["age"].isin(["55-64", "65 or over"]), "over_55", x["age"]
         )
     )
+    return df
+
+
+@task
+def job_feature(df: pd.DataFrame) -> pd.DataFrame:
+
+    df = (
+        df.assign(clean_job=lambda x: x["job"].str.lower())
+        .assign(clean_job=lambda x: x["clean_job"].str.strip())
+        .assign(
+            clean_job=lambda x: x["clean_job"].str.replace(
+                "sr", "senior", regex=False
+            )
+        )
+        .assign(
+            clean_job=lambda x: x["clean_job"].str.replace(
+                "lead", "principal", regex=False
+            )
+        )
+        .assign(
+            job_counts=lambda x: x.groupby("clean_job")[
+                "salary_usd"
+            ].transform("count")
+        )
+        .assign(
+            senior=lambda x: np.where(
+                x["clean_job"].str.startswith("senior"), 1, 0
+            )
+        )
+        .assign(
+            lead=lambda x: np.where(
+                x["clean_job"].str.startswith("lead"), 1, 0
+            )
+        )
+        .assign(
+            staff=lambda x: np.where(
+                x["clean_job"].str.startswith("staff"), 1, 0
+            )
+        )
+        .assign(
+            clean_job=lambda x: x["clean_job"].str.replace(
+                "senior", "", regex=False
+            )
+        )
+        .assign(
+            clean_job=lambda x: x["clean_job"].str.replace(
+                "principal", "", regex=False
+            )
+        )
+        .assign(
+            clean_job=lambda x: x["clean_job"].str.replace(
+                "staff", "", regex=False
+            )
+        )
+        .assign(clean_job=lambda x: x["clean_job"].str.strip())
+        .assign(
+            intern=lambda x: x["clean_job"].apply(
+                lambda x: 1 if "intern" == x.split(" ")[0] else 0
+            )
+        )
+        .assign(
+            assistant=lambda x: x["clean_job"].apply(
+                lambda x: 1 if "assistant" == x.split(" ")[0] else 0
+            )
+        )
+    )
+
+    top_jobs = (
+        df.sort_values("job_counts", ascending=False)
+        .filter(["clean_job", "job_counts"])
+        .drop_duplicates()
+        .head(120)
+    )
+    top_jobs_list = top_jobs["clean_job"].unique()
+
+    def fuzzy_match(row):
+        if len(row) < 2:
+            return row
+        else:
+            tup = process.extract(row, top_jobs_list, limit=1)[0]
+            try:
+                if tup[1] >= 90:
+                    return tup[0]
+                else:
+                    return "Other"
+            except IndexError:
+                return "Other"
+
+    df = df.assign(
+        gender=lambda x: np.where(
+            x["gender"].isin(
+                [
+                    "Other or prefer not to answer",
+                    "nan",
+                    "Prefer not to answer",
+                ]
+            ),
+            "Other or prefer not to answer",
+            x["gender"],
+        )
+    )
+
     return df
 
 
