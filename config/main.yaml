@@ -1,9 +1,8 @@
-hydra:
-  output_subdir: null
-  run:
+hydra:  
+  output_subdir: null  
+  run:  
     dir: .
-
-
+    
 raw_data: 
   path: data/raw_data/dataset.tsv
 
