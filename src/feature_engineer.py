@@ -8,7 +8,7 @@ from prefect.engine.results import LocalResult
 from prefect.engine.serializers import PandasSerializer
 
 INTERMEDIATE_OUTPUT = LocalResult(
-    "data/clean_data/",
+    "data/features_data/",
     location="{task_name}.csv",
     serializer=PandasSerializer("csv", serialize_kwargs={"index": False}),
 )
@@ -16,12 +16,11 @@ INTERMEDIATE_OUTPUT = LocalResult(
 
 @task
 def load_data(path: str) -> pd.DataFrame:
-    return pd.read_csv(path, delimiter="\t")
+    return pd.read_csv(path, delimiter=",")
 
 
 @task
 def age_feature(df: pd.DataFrame) -> pd.DataFrame:
-
     df = df.assign(
         age=lambda x: np.where(
             x["age"].isin(["under 18", "18-24"]), "under 25", x["age"]
@@ -264,10 +263,43 @@ def country_feature(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+@task(result=INTERMEDIATE_OUTPUT)
+def features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.filter(
+        [
+            "Id",
+            "age",
+            "Industry",
+            "clean_country",
+            "salary_usd",
+            "clean_job",
+            "senior",
+            "lead",
+            "staff",
+            "intern",
+            "assistant",
+            "junior_experience",
+            "mid_experience",
+            "senior_experience",
+            "old_experience",
+        ]
+    ).rename(
+        columns={
+            "Industry": "industry",
+            "clean_country": "country",
+            "salary_usd": "salary",
+            "clean_job": "job",
+            "Id": "id",
+        }
+    )
+
+    return df
+
+
 @hydra.main(config_path="../config", config_name="main")
 def feature_data(config: DictConfig):
 
-    with Flow("feature_engineering") as flow:
+    with Flow("feature_data") as flow:
 
         df = (
             load_data(config.clean_data.path)
@@ -276,7 +308,8 @@ def feature_data(config: DictConfig):
             .pipe(experience_feature)
             .pipe(country_feature)
         )
-        print(df.head())
+        df = features(df)
+
     flow.run()
 
 
