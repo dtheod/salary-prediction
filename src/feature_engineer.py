@@ -302,7 +302,7 @@ def feature_data(config: DictConfig):
     with Flow("feature_data") as flow:
 
         df = (
-            load_data(config.clean_data.path)
+            load_data(config.clean_data.path1)
             .pipe(age_feature)
             .pipe(job_feature)
             .pipe(experience_feature)
