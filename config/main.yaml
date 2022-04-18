@@ -9,7 +9,7 @@ raw_data:
 
 clean_data:
   path: data/clean_data/currency_conversion.csv
-
+  path1: data/clean_data/outlier_detect_remove.csv
 
 
 outliers:
