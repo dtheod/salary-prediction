@@ -1,4 +1,4 @@
-.PHONY: notebook
+.PHONY: notebook docs
 .EXPORT_ALL_VARIABLES:
 
 PREFECT__FLOWS__CHECKPOINTING = true
@@ -18,12 +18,23 @@ pull_data:
 	@echo "Pulling data..."
 	poetry run dvc pull
 
+
+docs_view:
+	@echo View API documentation
+	pdoc src
+
+docs_save:
+	@echo Save documentation to docs... 
+	pdoc src -o docs
+
 setup: activate 
 install_all: install env
 
 test:
 	pytest
 
-clean: 
-	@echo "Deleting log files..."
-	find . -name "*.log" -type f -not -path "./wandb/*" -delete
+clean:
+	find . -type f -name "*.py[co]" -delete
+	find . -type d -name "__pycache__" -delete
+	find . -type f -name "*.log" -delete
+	rm -rf .pytest_cache

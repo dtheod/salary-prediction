@@ -5,16 +5,19 @@ description = ""
 authors = ["Danis Theodoulou"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "3.8.10"
 dvc = "^2.10.0"
 hydra-core = "^1.1.1"
-pdoc3 = "^0.10.0"
 pandas = "^1.4.2"
 prefect = "^1.2.0"
 rich = "^12.2.0"
 pre-commit = "^2.18.1"
 click = "8.0.4"
 fuzzywuzzy = "^0.18.0"
+wandb = "^0.12.14"
+nltk = "^3.7"
+scipy = "1.8.0"
+scikit-learn = "1.0.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

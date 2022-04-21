@@ -6,12 +6,16 @@ hydra:
 raw_data: 
   path: data/raw_data/dataset.tsv
 
-
 clean_data:
   path: data/clean_data/currency_conversion.csv
   path1: data/clean_data/outlier_detect_remove.csv
+
+feature_data:
+  path: data/features_data/features.csv
 
 
 outliers:
   upper_limit: 0.98
   lower_limit: 0.02
+
+wandb_mode:
