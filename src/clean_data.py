@@ -1,3 +1,9 @@
+"""
+This module handles the interaction with Python's module system,
+that is it loads the correct module based on whatever the user specified,
+and provides the rest of pdoc with some additional module metadata.
+"""
+
 import os
 
 import hydra
@@ -7,8 +13,6 @@ from omegaconf import DictConfig
 from prefect import Flow, task
 from prefect.engine.results import LocalResult
 from prefect.engine.serializers import PandasSerializer
-
-print("Changes")
 
 INTERMEDIATE_OUTPUT = LocalResult(
     "data/clean_data/",
@@ -24,6 +28,7 @@ def load_data(path: str) -> pd.DataFrame:
 
 @task
 def rename_selection(df: pd.DataFrame) -> pd.DataFrame:
+
     df = (
         df.rename(
             columns={
@@ -37,7 +42,7 @@ def rename_selection(df: pd.DataFrame) -> pd.DataFrame:
                 "Country": "country",
                 "State": "state",
                 "City": "city",
-                "Overall years of professional experience": "years_epxerience",
+                "Overall years of professional experience": "years_experience",
                 "Years of experience in field": "years_field_experience",
                 "Highest level of education completed": "education",
                 "Gender": "gender",
@@ -51,12 +56,14 @@ def rename_selection(df: pd.DataFrame) -> pd.DataFrame:
                 "income_context",
                 "state",
                 "Timestamp",
+                "currency_other",
+                "city",
+                "years_experience",
+                "race",
             ],
             axis=1,
         )
-        .assign(
-            salary=lambda x: pd.to_numeric(x["salary"].str.replace(",", ""))
-        )
+        .assign(salary=lambda x: pd.to_numeric(x["salary"].str.replace(",", "")))
         .reset_index()
         .rename(columns={"index": "Id"})
         .fillna("nan")
@@ -85,9 +92,7 @@ def currency_conversion(df: pd.DataFrame) -> pd.DataFrame:
 
     df = (
         df.assign(
-            currency=lambda x: np.where(
-                x["currency"] == "AUD/NZD", "AUD", x["currency"]
-            )
+            currency=lambda x: np.where(x["currency"] == "AUD/NZD", "AUD", x["currency"])
         )
         .merge(fxusd_rates, how="left", left_on="currency", right_on="pair")
         .assign(pair=lambda x: x["pair"].fillna("nan"))
@@ -102,9 +107,7 @@ def currency_conversion(df: pd.DataFrame) -> pd.DataFrame:
             )
         )
         .assign(
-            currency=lambda x: np.where(
-                x["currency"] == "AUD/NZD", "AUD", x["currency"]
-            )
+            currency=lambda x: np.where(x["currency"] == "AUD/NZD", "AUD", x["currency"])
         )
         .drop(["pair", "rate", "conv_pair"], axis=1)
         .query("currency != 'Other'")
