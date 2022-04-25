@@ -39,3 +39,4 @@ clean:
 	rm -rf .pytest_cache
 	find . -name "*__pycache__" -exec rm -rf {} \;
 	find . -name "*.pytest_cache" -exec rm -rf {} \;
+	find . -type d -name ".DS_Store" -delete

@@ -1,7 +1,6 @@
 import hydra
 import numpy as np
 import pandas as pd
-from fuzzywuzzy import process
 from omegaconf import DictConfig
 from prefect import Flow, task
 from prefect.engine.results import LocalResult
@@ -22,9 +21,7 @@ def load_data(path: str) -> pd.DataFrame:
 @task
 def age_feature(df: pd.DataFrame) -> pd.DataFrame:
     df = df.assign(
-        age=lambda x: np.where(
-            x["age"].isin(["under 18", "18-24"]), "under 25", x["age"]
-        )
+        age=lambda x: np.where(x["age"].isin(["under 18", "18-24"]), "under 25", x["age"])
     ).assign(
         age=lambda x: np.where(
             x["age"].isin(["55-64", "65 or over"]), "over_55", x["age"]
@@ -40,9 +37,7 @@ def job_feature(df: pd.DataFrame) -> pd.DataFrame:
         df.assign(clean_job=lambda x: x["job"].str.lower())
         .assign(clean_job=lambda x: x["clean_job"].str.strip())
         .assign(
-            clean_job=lambda x: x["clean_job"].str.replace(
-                "sr", "senior", regex=False
-            )
+            clean_job=lambda x: x["clean_job"].str.replace("sr", "senior", regex=False)
         )
         .assign(
             clean_job=lambda x: x["clean_job"].str.replace(
@@ -50,74 +45,56 @@ def job_feature(df: pd.DataFrame) -> pd.DataFrame:
             )
         )
         .assign(
-            job_counts=lambda x: x.groupby("clean_job")[
-                "salary_usd"
-            ].transform("count")
+            job_counts=lambda x: x.groupby("clean_job")["salary_usd"].transform("count")
         )
+        .assign(senior=lambda x: np.where(x["clean_job"].str.contains("senior"), 1, 0))
+        .assign(lead=lambda x: np.where(x["clean_job"].str.contains("lead"), 1, 0))
+        .assign(staff=lambda x: np.where(x["clean_job"].str.contains("staff"), 1, 0))
+        .assign(law=lambda x: np.where(x["clean_job"].str.contains("law"), 1, 0))
+        .assign(manager=lambda x: np.where(x["clean_job"].str.contains("manager"), 1, 0))
         .assign(
-            senior=lambda x: np.where(
-                x["clean_job"].str.startswith("senior"), 1, 0
+            software=lambda x: np.where(
+                x["clean_job"].str.contains("developer|engineer"), 1, 0
             )
         )
         .assign(
-            lead=lambda x: np.where(
-                x["clean_job"].str.startswith("lead"), 1, 0
-            )
+            professor=lambda x: np.where(x["clean_job"].str.contains("professor"), 1, 0)
+        )
+        .assign(data=lambda x: np.where(x["clean_job"].str.contains("data"), 1, 0))
+        .assign(
+            assistant=lambda x: np.where(x["clean_job"].str.contains("assistant"), 1, 0)
+        )
+        .assign(intern=lambda x: np.where(x["clean_job"].str.contains("intern"), 1, 0))
+        .assign(
+            professor=lambda x: np.where(x["clean_job"].str.contains("director"), 1, 0)
+        )
+        .assign(analyst=lambda x: np.where(x["clean_job"].str.contains("analyst"), 1, 0))
+        .assign(
+            president=lambda x: np.where(x["clean_job"].str.contains("president"), 1, 0)
         )
         .assign(
-            staff=lambda x: np.where(
-                x["clean_job"].str.startswith("staff"), 1, 0
-            )
+            attorney=lambda x: np.where(x["clean_job"].str.contains("attorney"), 1, 0)
         )
         .assign(
-            clean_job=lambda x: x["clean_job"].str.replace(
-                "senior", "", regex=False
-            )
+            director=lambda x: np.where(x["clean_job"].str.contains("director"), 1, 0)
         )
         .assign(
-            clean_job=lambda x: x["clean_job"].str.replace(
-                "principal", "", regex=False
-            )
+            librarian=lambda x: np.where(x["clean_job"].str.contains("librarian"), 1, 0)
         )
+        .assign(teacher=lambda x: np.where(x["clean_job"].str.contains("teacher"), 1, 0))
+        .assign(clean_job=lambda x: x["clean_job"].str.replace("senior", "", regex=False))
         .assign(
-            clean_job=lambda x: x["clean_job"].str.replace(
-                "staff", "", regex=False
-            )
+            clean_job=lambda x: x["clean_job"].str.replace("principal", "", regex=False)
         )
+        .assign(clean_job=lambda x: x["clean_job"].str.replace("staff", "", regex=False))
         .assign(clean_job=lambda x: x["clean_job"].str.strip())
-        .assign(
-            intern=lambda x: x["clean_job"].apply(
-                lambda x: 1 if "intern" == x.split(" ")[0] else 0
-            )
-        )
-        .assign(
-            assistant=lambda x: x["clean_job"].apply(
-                lambda x: 1 if "assistant" == x.split(" ")[0] else 0
-            )
-        )
     )
 
-    top_jobs = (
-        df.sort_values("job_counts", ascending=False)
-        .filter(["clean_job", "job_counts"])
-        .drop_duplicates()
-        .head(120)
-    )
-    top_jobs_list = top_jobs["clean_job"].unique()
+    return df
 
-    def fuzzy_match(row):
-        if len(row) < 2:
-            return row
-        else:
-            tup = process.extract(row, top_jobs_list, limit=1)[0]
-            try:
-                if tup[1] >= 90:
-                    return tup[0]
-                else:
-                    return "Other"
-            except IndexError:
-                return "Other"
 
+@task
+def gender_feature(df: pd.DataFrame) -> pd.DataFrame:
     df = df.assign(
         gender=lambda x: np.where(
             x["gender"].isin(
@@ -131,7 +108,6 @@ def job_feature(df: pd.DataFrame) -> pd.DataFrame:
             x["gender"],
         )
     )
-
     return df
 
 
@@ -141,9 +117,7 @@ def experience_feature(df: pd.DataFrame) -> pd.DataFrame:
     df = (
         df.assign(
             junior_experience=lambda x: np.where(
-                x["years_field_experience"].isin(
-                    ["1 year or less", "2 - 4 years"]
-                ),
+                x["years_field_experience"].isin(["1 year or less", "2 - 4 years"]),
                 1,
                 0,
             )
@@ -164,9 +138,7 @@ def experience_feature(df: pd.DataFrame) -> pd.DataFrame:
         )
         .assign(
             old_experience=lambda x: np.where(
-                x["years_field_experience"].isin(
-                    ["31 - 40 years", "41 years or more"]
-                ),
+                x["years_field_experience"].isin(["31 - 40 years", "41 years or more"]),
                 1,
                 0,
             )
@@ -175,6 +147,15 @@ def experience_feature(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     return df
+
+
+@task
+def salary_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.assign(
+        job_salary=lambda x: x.groupby(["clean_job", "industry"])["salary"].transform(
+            "mean"
+        )
+    )
 
 
 @task
@@ -238,25 +219,20 @@ def country_feature(df: pd.DataFrame) -> pd.DataFrame:
             return row
 
     df = (
-        df.assign(
-            clean_country=lambda x: x["country"].str.replace(
-                ".", "", regex=False
-            )
-        )
+        df.assign(clean_country=lambda x: x["country"].str.replace(".", "", regex=False))
         .assign(clean_country=lambda x: x["clean_country"].str.lower())
         .assign(clean_country=lambda x: x["clean_country"].str.strip())
         .assign(clean_country=lambda x: x["clean_country"].apply(usa_func))
         .assign(clean_country=lambda x: x["clean_country"].apply(uk_func))
+        .assign(clean_country=lambda x: x["clean_country"].apply(netherlands_func))
+        .assign(clean_country=lambda x: x["clean_country"].apply(newzealand_func))
         .assign(
-            clean_country=lambda x: x["clean_country"].apply(netherlands_func)
+            counts=lambda x: x.groupby("clean_country")["salary_usd"].transform("count")
         )
         .assign(
-            clean_country=lambda x: x["clean_country"].apply(newzealand_func)
-        )
-        .assign(
-            counts=lambda x: x.groupby("clean_country")[
-                "salary_usd"
-            ].transform("count")
+            clean_country=lambda x: np.where(
+                x["counts"] >= 10, x["clean_country"], "Other"
+            )
         )
     )
 
@@ -269,27 +245,33 @@ def features(df: pd.DataFrame) -> pd.DataFrame:
         [
             "Id",
             "age",
-            "Industry",
-            "clean_country",
+            "country",
+            "years_field_experience",
+            "education",
+            "gender",
             "salary_usd",
-            "clean_job",
             "senior",
             "lead",
             "staff",
             "intern",
             "assistant",
-            "junior_experience",
-            "mid_experience",
-            "senior_experience",
-            "old_experience",
+            "law",
+            "manager",
+            "software",
+            "professor",
+            "data",
+            "president",
+            "director",
+            "librarian",
+            "teacher",
+            "analyst",
+            "attorney",
         ]
     ).rename(
         columns={
-            "Industry": "industry",
-            "clean_country": "country",
             "salary_usd": "salary",
-            "clean_job": "job",
             "Id": "id",
+            "years_field_experience": "experience",
         }
     )
 
@@ -304,11 +286,13 @@ def feature_data(config: DictConfig):
         df = (
             load_data(config.clean_data.path1)
             .pipe(age_feature)
+            .pipe(gender_feature)
             .pipe(job_feature)
             .pipe(experience_feature)
             .pipe(country_feature)
         )
-        df = features(df)
+
+        df = df.pipe(features)
 
     flow.run()
 
