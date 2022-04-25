@@ -70,9 +70,8 @@ def check_nas_step(steps_data):
 
 def conversion_step(steps_data):
     intermediate_b = currency_conversion.run(steps_data.intermediate_a)
-    assert intermediate_b["salary_usd"][0] >= 70800
-
     steps_data.intermediate_b = intermediate_b
+    assert intermediate_b["salary_usd"][0] <= 70800
 
 
 def conversion_data_check_step(steps_data):
@@ -93,5 +92,4 @@ def conversion_data_check_step(steps_data):
             "new_currency": Column(object),
         }
     )
-
     schema.validate(steps_data.intermediate_b)
