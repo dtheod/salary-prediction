@@ -1,7 +1,7 @@
 .PHONY: notebook docs
 .EXPORT_ALL_VARIABLES:
 
-PREFECT__FLOWS__CHECKPOINTING = true
+PREFECT__FLOWS__CHECKPOINTING=true
 
 install: 
 	@echo "Installing..."
@@ -31,10 +31,11 @@ setup: activate
 install_all: install env
 
 test:
-	pytest
+	pytest --no-header -v  
 
 clean:
-	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
 	find . -type f -name "*.log" -delete
 	rm -rf .pytest_cache
+	find . -name "*__pycache__" -exec rm -rf {} \;
+	find . -name "*.pytest_cache" -exec rm -rf {} \;
