@@ -3,11 +3,12 @@
 name: Run tests
 
 on:
-   push:
-	branches:
-	 - "main"
-# Controls when the workflow will run
-on:[push]
+  push:
+    branches:
+      - "main"
+  pull_request:
+    branches:
+      - "main"
 
 jobs:
   checkout:
@@ -21,7 +22,7 @@ jobs:
       - name: Environment setup
         uses: actions/setup-python@v1
         with:
-          python-version: 3.9
+          python-version: 3.8.12
         
       - name: Install Poetry
         uses: Gr1N/setup-poetry@v7
