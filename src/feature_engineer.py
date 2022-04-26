@@ -150,15 +150,6 @@ def experience_feature(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @task
-def salary_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.assign(
-        job_salary=lambda x: x.groupby(["clean_job", "industry"])["salary"].transform(
-            "mean"
-        )
-    )
-
-
-@task
 def country_feature(df: pd.DataFrame) -> pd.DataFrame:
     def usa_func(row):
         if row in [
@@ -239,17 +230,34 @@ def country_feature(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+@task
+def salary_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = (
+        df.assign(counts=lambda x: x.groupby("job")["salary"].transform("count"))
+        .assign(job_new=lambda x: np.where(x["counts"] > 1, x["job"], "Other"))
+        .assign(
+            job_salary_mean=lambda x: x.groupby(["job_new"])["salary"].transform("mean")
+        )
+        .assign(
+            job_salary_std=lambda x: x.groupby(["job_new"])["salary"].transform("std")
+        )
+    )
+    return df
+
+
 @task(result=INTERMEDIATE_OUTPUT)
 def features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.filter(
         [
             "Id",
             "age",
-            "country",
+            "clean_country",
             "years_field_experience",
             "education",
             "gender",
             "salary_usd",
+            "job_salary_mean",
+            "job_salary_std",
             "senior",
             "lead",
             "staff",
@@ -270,6 +278,8 @@ def features(df: pd.DataFrame) -> pd.DataFrame:
     ).rename(
         columns={
             "salary_usd": "salary",
+            "clean_job": "job",
+            "clean_country": "country",
             "Id": "id",
             "years_field_experience": "experience",
         }
@@ -288,6 +298,7 @@ def feature_data(config: DictConfig):
             .pipe(age_feature)
             .pipe(gender_feature)
             .pipe(job_feature)
+            .pipe(salary_features)
             .pipe(experience_feature)
             .pipe(country_feature)
         )
