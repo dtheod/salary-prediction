@@ -10,9 +10,11 @@ from prefect.engine.serializers import PandasSerializer
 from sklearn.ensemble import (GradientBoostingRegressor, RandomForestRegressor,
                               VotingRegressor)
 from sklearn.linear_model import ElasticNet
+from sklearn.metrics import r2_score
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 from yellowbrick.model_selection import LearningCurve
+#from yellowbrick.target import FeatureCorrelation
 
 import wandb
 
@@ -35,16 +37,8 @@ def initialize_wandb(config: DictConfig):
 
 @task
 def load_features(path: str) -> pd.DataFrame:
-    return pd.read_csv(path, delimiter=",")
-
-
-@task
-def train_test_split_func(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    df.dropna(inplace=True)
-    df = df[df["job"] != "No Match"]
-    train = df.sample(frac=0.2, random_state=200)
-    test = df.drop(train.index)
-    return train, test
+    data = pd.read_csv(path, delimiter=",")
+    return data
 
 
 @task
@@ -55,17 +49,8 @@ def train_val_split(
     X = df.drop("salary", axis=1)
     y = df["salary"]
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2)
+    wandb.log({"table": X})
     return X_train, X_val, y_train, y_val
-
-
-@task
-def salary_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.assign(
-        job_salary=lambda x: x.groupby(["clean_job", "industry"])["salary"].transform(
-            "mean"
-        )
-    )
-    pass
 
 
 @task
@@ -94,6 +79,7 @@ def apply_scaling(df: pd.DataFrame, scaler: StandardScaler) -> pd.DataFrame:
 
 @task
 def modeling(df_x: pd.DataFrame, df_y: pd.DataFrame) -> RandomForestRegressor:
+
     alpha = 0.7
     l1_ratio = 0.7
     learning_rate = 0.01
@@ -120,11 +106,23 @@ def plot_training_curve(model: dict, df_x: pd.DataFrame, df_y: pd.DataFrame) -> 
     wandb.log({"training_curve": wandb.Image("learning_curve.png")})
 
 
+# @task
+# def mutual_information_viz(features: np.ndarray, target: np.ndarray) -> None:
+#     discrete = [False for _ in range(len(features))]
+#     discrete[1] = True
+
+#     visualizer = FeatureCorrelation(method="mutual_info-regression", labels=features)
+#     visualizer.fit(features, target, discrete_features=discrete, random_state=0)
+#     visualizer.show(outpath="mututal_information.png")
+#     wandb.log({"mutual_information": wandb.Image("mututal_information.png")})
+
+
 @task(result=FINAL_OUTPUT)
 def prediction(model: dict, df_x: pd.DataFrame, df_y: pd.DataFrame) -> pd.DataFrame:
 
     results = model.predict(df_x)
     comparison = pd.DataFrame({"Predicted": results, "Actual": df_y})
+    wandb.log({"r2_score": r2_score(comparison["Actual"], comparison["Predicted"])})
     return comparison
 
 
@@ -133,9 +131,8 @@ def wandb_log(config: DictConfig):
 
     # log data
     wandb.log_artifact(config.raw_data.path, name="raw_data", type="data")
+    wandb.log_artifact(config.clean_data.path, name="clean_data", type="data")
     wandb.log_artifact(config.feature_data.path, name="features", type="data")
-    wandb.log_artifact(config.outliers.upper_limit, name="outlier_ul", type="parameter")
-    wandb.log_artifact(config.outliers.lower_limit, name="outlier_ll", type="parameter")
 
 
 @hydra.main(config_path="../config", config_name="main")
@@ -165,8 +162,11 @@ def predict(config: DictConfig) -> None:
 
         # Training Curve model
         plot_training_curve(reg2, X_train, y_train)
+        # mutual_information_viz(X_val, y_val)
 
         prediction(reg2, X_val, y_val)
+
+        wandb_log(config)
 
     flow.run()
 
