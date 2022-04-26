@@ -13,11 +13,6 @@ clean_data:
 feature_data:
   path: data/features_data/features.csv
 
-model:
-  dir: models
-  name: XGBoost
-  path: ${model.dir}/${final.name}
-
 outliers:
   upper_limit: 0.98
   lower_limit: 0.02
