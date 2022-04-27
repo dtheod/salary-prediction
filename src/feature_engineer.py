@@ -178,19 +178,28 @@ def country_feature(df: pd.DataFrame) -> pd.DataFrame:
             return row
 
     df = (
-        df.assign(clean_country=lambda x: x["country"].str.replace(".", "", regex=False))
-        .assign(clean_country=lambda x: x["clean_country"].str.lower())
-        .assign(clean_country=lambda x: x["clean_country"].str.strip())
-        .assign(clean_country=lambda x: x["clean_country"].apply(usa_func))
-        .assign(clean_country=lambda x: x["clean_country"].apply(uk_func))
-        .assign(clean_country=lambda x: x["clean_country"].apply(netherlands_func))
-        .assign(clean_country=lambda x: x["clean_country"].apply(newzealand_func))
-        .assign(
-            counts=lambda x: x.groupby("clean_country")["salary_usd"].transform("count")
+        df.pipe(
+            lambda df_: df_.assign(
+                clean_country=(
+                    df_["country"]
+                    .str.replace(".", "", regex=False)
+                    .str.lower()
+                    .str.strip()
+                    .apply(usa_func)
+                    .apply(uk_func)
+                    .apply(netherlands_func)
+                    .apply(newzealand_func)
+                )
+            )
         )
         .assign(
-            clean_country=lambda x: np.where(
-                x["counts"] >= 10, x["clean_country"], "Other"
+            counts=lambda df_: df_.groupby("clean_country")["salary_usd"].transform(
+                "count"
+            )
+        )
+        .assign(
+            clean_country=lambda df_: np.where(
+                df_["counts"] >= 10, df_["clean_country"], "Other"
             )
         )
     )
