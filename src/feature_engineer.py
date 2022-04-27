@@ -33,61 +33,36 @@ def age_feature(df: pd.DataFrame) -> pd.DataFrame:
 @task
 def job_feature(df: pd.DataFrame) -> pd.DataFrame:
 
-    df = (
-        df.assign(clean_job=lambda x: x["job"].str.lower())
-        .assign(clean_job=lambda x: x["clean_job"].str.strip())
-        .assign(
-            clean_job=lambda x: x["clean_job"].str.replace("sr", "senior", regex=False)
-        )
-        .assign(
-            clean_job=lambda x: x["clean_job"].str.replace(
-                "lead", "principal", regex=False
+    df = df.pipe(
+        lambda df_: df_.assign(
+            clean_job=(
+                df_["job"]
+                .str.lower()
+                .str.strip()
+                .str.replace("sr", "senior", regex=False)
+                .str.replace("lead", "principal", regex=False)
             )
         )
-        .assign(
-            job_counts=lambda x: x.groupby("clean_job")["salary_usd"].transform("count")
+    ).pipe(
+        lambda df_: df_.assign(
+            job_counts=df_.groupby("clean_job")["salary_usd"].transform("count"),
+            senior=np.where(df_["clean_job"].str.contains("senior"), 1, 0),
+            lead=np.where(df_["clean_job"].str.contains("lead"), 1, 0),
+            staff=np.where(df_["clean_job"].str.contains("staff"), 1, 0),
+            law=np.where(df_["clean_job"].str.contains("law"), 1, 0),
+            manager=np.where(df_["clean_job"].str.contains("manager"), 1, 0),
+            software=np.where(df_["clean_job"].str.contains("developer|engineer"), 1, 0),
+            professor=np.where(df_["clean_job"].str.contains("professor"), 1, 0),
+            data=np.where(df_["clean_job"].str.contains("data"), 1, 0),
+            assistant=np.where(df_["clean_job"].str.contains("assistant"), 1, 0),
+            intern=np.where(df_["clean_job"].str.contains("intern"), 1, 0),
+            analyst=np.where(df_["clean_job"].str.contains("analyst"), 1, 0),
+            president=np.where(df_["clean_job"].str.contains("president"), 1, 0),
+            attorney=np.where(df_["clean_job"].str.contains("attorney"), 1, 0),
+            director=np.where(df_["clean_job"].str.contains("director"), 1, 0),
+            librarian=np.where(df_["clean_job"].str.contains("librarian"), 1, 0),
+            teacher=np.where(df_["clean_job"].str.contains("teacher"), 1, 0),
         )
-        .assign(senior=lambda x: np.where(x["clean_job"].str.contains("senior"), 1, 0))
-        .assign(lead=lambda x: np.where(x["clean_job"].str.contains("lead"), 1, 0))
-        .assign(staff=lambda x: np.where(x["clean_job"].str.contains("staff"), 1, 0))
-        .assign(law=lambda x: np.where(x["clean_job"].str.contains("law"), 1, 0))
-        .assign(manager=lambda x: np.where(x["clean_job"].str.contains("manager"), 1, 0))
-        .assign(
-            software=lambda x: np.where(
-                x["clean_job"].str.contains("developer|engineer"), 1, 0
-            )
-        )
-        .assign(
-            professor=lambda x: np.where(x["clean_job"].str.contains("professor"), 1, 0)
-        )
-        .assign(data=lambda x: np.where(x["clean_job"].str.contains("data"), 1, 0))
-        .assign(
-            assistant=lambda x: np.where(x["clean_job"].str.contains("assistant"), 1, 0)
-        )
-        .assign(intern=lambda x: np.where(x["clean_job"].str.contains("intern"), 1, 0))
-        .assign(
-            professor=lambda x: np.where(x["clean_job"].str.contains("director"), 1, 0)
-        )
-        .assign(analyst=lambda x: np.where(x["clean_job"].str.contains("analyst"), 1, 0))
-        .assign(
-            president=lambda x: np.where(x["clean_job"].str.contains("president"), 1, 0)
-        )
-        .assign(
-            attorney=lambda x: np.where(x["clean_job"].str.contains("attorney"), 1, 0)
-        )
-        .assign(
-            director=lambda x: np.where(x["clean_job"].str.contains("director"), 1, 0)
-        )
-        .assign(
-            librarian=lambda x: np.where(x["clean_job"].str.contains("librarian"), 1, 0)
-        )
-        .assign(teacher=lambda x: np.where(x["clean_job"].str.contains("teacher"), 1, 0))
-        .assign(clean_job=lambda x: x["clean_job"].str.replace("senior", "", regex=False))
-        .assign(
-            clean_job=lambda x: x["clean_job"].str.replace("principal", "", regex=False)
-        )
-        .assign(clean_job=lambda x: x["clean_job"].str.replace("staff", "", regex=False))
-        .assign(clean_job=lambda x: x["clean_job"].str.strip())
     )
 
     return df
@@ -96,8 +71,8 @@ def job_feature(df: pd.DataFrame) -> pd.DataFrame:
 @task
 def gender_feature(df: pd.DataFrame) -> pd.DataFrame:
     df = df.assign(
-        gender=lambda x: np.where(
-            x["gender"].isin(
+        gender=lambda df_: np.where(
+            df_["gender"].isin(
                 [
                     "Other or prefer not to answer",
                     "nan",
@@ -105,7 +80,7 @@ def gender_feature(df: pd.DataFrame) -> pd.DataFrame:
                 ]
             ),
             "Other or prefer not to answer",
-            x["gender"],
+            df_["gender"],
         )
     )
     return df
@@ -114,37 +89,30 @@ def gender_feature(df: pd.DataFrame) -> pd.DataFrame:
 @task
 def experience_feature(df: pd.DataFrame) -> pd.DataFrame:
 
-    df = (
-        df.assign(
-            junior_experience=lambda x: np.where(
-                x["years_field_experience"].isin(["1 year or less", "2 - 4 years"]),
+    df = df.pipe(
+        lambda df_: df_.assign(
+            junior_experience=np.where(
+                df_["years_field_experience"].isin(["1 year or less", "2 - 4 years"]),
                 1,
                 0,
-            )
-        )
-        .assign(
-            mid_experience=lambda x: np.where(
-                x["years_field_experience"].isin(["5-7 years"]), 1, 0
-            )
-        )
-        .assign(
-            senior_experience=lambda x: np.where(
-                x["years_field_experience"].isin(
+            ),
+            mid_experience=np.where(
+                df_["years_field_experience"].isin(["5-7 years"]), 1, 0
+            ),
+            senior_experience=np.where(
+                df_["years_field_experience"].isin(
                     ["8 - 10 years", "11 - 20 years", "21 - 30 years"]
                 ),
                 1,
                 0,
-            )
-        )
-        .assign(
-            old_experience=lambda x: np.where(
-                x["years_field_experience"].isin(["31 - 40 years", "41 years or more"]),
+            ),
+            old_experience=np.where(
+                df_["years_field_experience"].isin(["31 - 40 years", "41 years or more"]),
                 1,
                 0,
-            )
+            ),
         )
-        .drop("years_field_experience", axis=1)
-    )
+    ).drop("years_field_experience", axis=1)
 
     return df
 
