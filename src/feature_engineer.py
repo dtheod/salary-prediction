@@ -228,6 +228,19 @@ def country_feature(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+@task
+def industry_feature(df:pd.DataFrame) -> pd.DataFrame:
+    
+    def topn(ser, n=22, default='other'):
+        counts = ser.value_counts()
+        return ser.where(ser.isin(counts.index[:n]), default)
+    
+    df = (
+     df
+     .pipe(lambda df_: df_.assign(Industry = df_['Industry'].str.lower().pipe(topn)))
+    )
+    return df
+
 
 @task
 def salary_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -271,8 +284,9 @@ def features(df: pd.DataFrame) -> pd.DataFrame:
             "clean_country",
             "years_field_experience",
             "education",
+            "Industry",
             "gender",
-            "clean_job",
+            #"clean_job",
             "cluster",
             "salary_usd",
             "job_salary_mean",
@@ -282,22 +296,12 @@ def features(df: pd.DataFrame) -> pd.DataFrame:
             "staff",
             "intern",
             "assistant",
-            "law",
-            "manager",
-            "software",
-            "professor",
-            "data",
-            "president",
-            "director",
-            "librarian",
-            "teacher",
-            "analyst",
-            "attorney",
         ]
     ).rename(
         columns={
             "salary_usd": "salary",
             "clean_job": "job",
+            "Industry": "industry",
             "clean_country": "country",
             "Id": "id",
             "years_field_experience": "experience",
@@ -318,6 +322,7 @@ def feature_data(config: DictConfig):
             .pipe(education_feature)
             .pipe(gender_feature)
             .pipe(job_feature)
+            .pipe(industry_feature)
             .pipe(salary_features)
             .pipe(experience_feature)
             .pipe(country_feature)

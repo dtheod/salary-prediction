@@ -24,6 +24,7 @@ urllib3 = "^1.26.9"
 bentoml = "1.0.0a4"
 streamlit = "^1.8.1"
 xgboost = "^1.6.0"
+hyperopt = "^0.2.7"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

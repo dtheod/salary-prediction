@@ -13,6 +13,9 @@ clean_data:
 feature_data:
   path: data/features_data/features.csv
 
+final_data:
+  path: data/final/prediction.csv
+
 outliers:
   upper_limit: 0.98
   lower_limit: 0.02
