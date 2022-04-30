@@ -228,17 +228,14 @@ def country_feature(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 @task
-def industry_feature(df:pd.DataFrame) -> pd.DataFrame:
-    
-    def topn(ser, n=22, default='other'):
+def industry_feature(df: pd.DataFrame) -> pd.DataFrame:
+    def topn(ser, n=22, default="other"):
         counts = ser.value_counts()
         return ser.where(ser.isin(counts.index[:n]), default)
-    
-    df = (
-     df
-     .pipe(lambda df_: df_.assign(Industry = df_['Industry'].str.lower().pipe(topn)))
-    )
+
+    df = df.pipe(lambda df_: df_.assign(Industry=df_["Industry"].str.lower().pipe(topn)))
     return df
 
 
@@ -286,7 +283,7 @@ def features(df: pd.DataFrame) -> pd.DataFrame:
             "education",
             "Industry",
             "gender",
-            #"clean_job",
+            # "clean_job",
             "cluster",
             "salary_usd",
             "job_salary_mean",
