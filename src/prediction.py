@@ -1,5 +1,6 @@
 import warnings
 from typing import Any, Tuple
+
 import bentoml
 import hydra
 import numpy as np
@@ -11,11 +12,13 @@ from prefect.engine.results import LocalResult
 from prefect.engine.serializers import PandasSerializer
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import KFold, train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from xgboost import XGBRegressor
 from yellowbrick.contrib.wrapper import wrap
 from yellowbrick.model_selection import LearningCurve
+
 import wandb
+
 warnings.filterwarnings("ignore")
 
 FINAL_OUTPUT = LocalResult(
@@ -60,14 +63,19 @@ def train_val_split(
 
 
 @task
-def one_hot_encoding(df_train: pd.DataFrame) -> pd.DataFrame:
+def one_hot_encoding(df: pd.DataFrame) -> pd.DataFrame:
 
-    all_data_types = list(df_train.dtypes)
-    columns = list(df_train)
-    for data_type, colum in zip(all_data_types, columns):
-        if str(data_type) == "object":
-            df_train[colum] = df_train[colum].astype("category")
-    return pd.get_dummies(df_train)
+    df_object = df.select_dtypes("object")
+    df_nobject = df.select_dtypes(exclude="object")
+    enc = OneHotEncoder(handle_unknown="ignore", sparse=False)
+    enc.fit(df_object)
+    bentoml.sklearn.save("one_hot", enc)
+    codes = enc.transform(df_object)
+    feature_names = enc.get_feature_names(df_object.columns)
+    df_one_hot = pd.DataFrame(codes, columns=feature_names).astype(int)
+    df = pd.concat([df_nobject, df_one_hot], axis=1)
+    wandb.log({"df_scaled": df})
+    return df
 
 
 @task
@@ -145,7 +153,7 @@ def modeling(df_x: pd.DataFrame, df_y: pd.DataFrame) -> XGBRegressor:
     )
 
     model = wrap(model)
-    model.fit(df_x, df_y)
+    model.fit(df_x[:, 1:], df_y)
     bentoml.xgboost.save(
         "booster_tree",
         model,

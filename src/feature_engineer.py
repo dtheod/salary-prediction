@@ -1,5 +1,6 @@
 import warnings
 
+import bentoml
 import hydra
 import numpy as np
 import pandas as pd
@@ -7,8 +8,10 @@ from omegaconf import DictConfig
 from prefect import Flow, task
 from prefect.engine.results import LocalResult
 from prefect.engine.serializers import PandasSerializer
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.pipeline import Pipeline
 from yellowbrick.cluster import KElbowVisualizer
 
 warnings.filterwarnings("ignore")
@@ -18,6 +21,22 @@ INTERMEDIATE_OUTPUT = LocalResult(
     location="{task_name}.csv",
     serializer=PandasSerializer("csv", serialize_kwargs={"index": False}),
 )
+
+
+class CustomFeature(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        print("Initialising education feature")
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        print("feature transform")
+        X = education_feature.run(X)
+        X = experience_feature.run(X)
+        X = industry_feature.run(X)
+        X = job_feature.run(X)
+        return X
 
 
 @task
@@ -71,7 +90,6 @@ def job_feature(df: pd.DataFrame) -> pd.DataFrame:
         )
         .pipe(
             lambda df_: df_.assign(
-                job_counts=df_.groupby("clean_job")["salary_usd"].transform("count"),
                 senior=np.where(df_["clean_job"].str.startswith("senior"), 1, 0),
                 principal=np.where(df_["clean_job"].str.startswith("principal"), 1, 0),
                 staff=np.where(df_["clean_job"].str.startswith("staff"), 1, 0),
@@ -91,6 +109,8 @@ def job_feature(df: pd.DataFrame) -> pd.DataFrame:
                 )
             )
         )
+        .drop("job", axis=1)
+        .rename(columns={"clean_job": "job"})
     )
 
     return df
@@ -236,29 +256,32 @@ def industry_feature(df: pd.DataFrame) -> pd.DataFrame:
         return ser.where(ser.isin(counts.index[:n]), default)
 
     df = df.pipe(lambda df_: df_.assign(Industry=df_["Industry"].str.lower().pipe(topn)))
-    return df
+    return df.rename(columns={"Industry": "industry"})
 
 
-@task
-def salary_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = (
-        df.assign(counts=lambda x: x.groupby("clean_job")["salary"].transform("count"))
-        .assign(clean_job=lambda x: np.where(x["counts"] > 2, x["clean_job"], "Other"))
-        .query("clean_job != 'Other'")
-        .assign(
-            job_salary_mean=lambda x: x.groupby(["clean_job"])["salary"].transform("mean")
-        )
-        .assign(
-            job_salary_std=lambda x: x.groupby(["clean_job"])["salary"].transform("std")
-        )
-    )
-    return df
+# @task
+# def salary_features(df: pd.DataFrame) -> pd.DataFrame:
+#     df = (
+#         df.assign(counts=lambda x: x.groupby("job")["salary"].transform("count"))
+#         .assign(job=lambda x: np.where(x["counts"] > 2, x["job"], "Other"))
+#         .query("job != 'Other'")
+#         .assign(
+#             job_salary_mean=lambda x: x.groupby(["job"])["salary"].transform("mean")
+#         )
+#         .assign(
+#             job_salary_std=lambda x: x.groupby(["job"])["salary"].transform("std")
+#         )
+#     )
+#     return df
 
 
 @task
 def clustering_feature(df: pd.DataFrame) -> pd.DataFrame:
     vectorizer = TfidfVectorizer(stop_words={"english"})
-    X = vectorizer.fit_transform(df.clean_job.values.tolist())
+    tfidf = vectorizer.fit(df.job.values.tolist())
+    bentoml.sklearn.save("tfidf", tfidf)
+
+    X = tfidf.transform(df.job.values.tolist())
     true_k = 8
     model1 = KMeans(init="k-means++", max_iter=200, n_init=10)
     visualizer = KElbowVisualizer(model1, k=(4, 12))
@@ -266,9 +289,20 @@ def clustering_feature(df: pd.DataFrame) -> pd.DataFrame:
     visualizer.show("elbow_method.png")
     model = KMeans(n_clusters=true_k, init="k-means++", max_iter=200, n_init=10)
     model.fit(X)
+    bentoml.sklearn.save("kmeans", model)
+
     labels = model.labels_
     labels = ["c" + str(label) for label in labels]
     df["cluster"] = labels
+    return df
+
+
+@task
+def feature_estimators(df: pd.DataFrame) -> pd.DataFrame:
+    my_pipe = Pipeline(steps=[("custom_pipe", CustomFeature())])
+    my_pipe.fit(df)
+    print("--PASSED--")
+    bentoml.sklearn.save("custom_transform_pipe", my_pipe)
     return df
 
 
@@ -281,9 +315,9 @@ def features(df: pd.DataFrame) -> pd.DataFrame:
             "clean_country",
             "years_field_experience",
             "education",
-            "Industry",
+            "industry",
             "gender",
-            # "clean_job",
+            # "job",
             "cluster",
             "salary_usd",
             "job_salary_mean",
@@ -297,8 +331,6 @@ def features(df: pd.DataFrame) -> pd.DataFrame:
     ).rename(
         columns={
             "salary_usd": "salary",
-            "clean_job": "job",
-            "Industry": "industry",
             "clean_country": "country",
             "Id": "id",
             "years_field_experience": "experience",
@@ -320,10 +352,11 @@ def feature_data(config: DictConfig):
             .pipe(gender_feature)
             .pipe(job_feature)
             .pipe(industry_feature)
-            .pipe(salary_features)
+            # .pipe(salary_features)
             .pipe(experience_feature)
             .pipe(country_feature)
             .pipe(clustering_feature)
+            .pipe(feature_estimators)
         )
 
         df = df.pipe(features)
