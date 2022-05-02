@@ -323,7 +323,7 @@ def features(df: pd.DataFrame) -> pd.DataFrame:
             "job_salary_mean",
             "job_salary_std",
             "senior",
-            "lead",
+            "principal",
             "staff",
             "intern",
             "assistant",
