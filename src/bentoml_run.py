@@ -19,15 +19,6 @@ service = bentoml.Service(
     "prediction", runners=[scaler, encoder, cluster, tfidf, regressor]
 )
 
-# df = pd.DataFrame({'age':['25-34'],
-#                    'Industry':['Education (Higher Education)'],
-#                    'job': ['senior program manager'],
-#                    'country': ['united states'],
-#                    'years_field_experience':['5-7 years'],
-#                    'education':['College degree'],
-#                    'gender': ['Man']
-# })
-
 
 class Employee(BaseModel):
     age: str = "25-34"

@@ -7,12 +7,3 @@ prediction = requests.post(
 ).text
 
 print(prediction)
-
-
-
-
-
-
-
-    
-
